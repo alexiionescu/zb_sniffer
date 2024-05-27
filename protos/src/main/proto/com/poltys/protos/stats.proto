@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.poltys.protos.zb_stats";
+option java_outer_classname = "ZBStatsProto";
+option objc_class_prefix = "ZBS";
+
+package zb_stats;
+
+service StatsReport {
+  rpc GetStats (StatsRequest) returns (StatsReply) {}
+}
+
+message StatsRequest {
+  optional string name = 1;
+  optional int64 timestamp = 2;
+  optional float lqi = 3;
+  optional int32 seq_lost = 4;
+}
+
+message StatsItem {
+    int64 timestamp = 1;
+    float lqi = 2;
+    float rssi = 3;
+    int32 len = 4;
+    int32 seq_lost = 5;
+    int32 seq_cnt = 6;
+    int32 seq_duplicates = 7;
+}
+message StatsReply {
+    map<string, StatsItem> stats = 1;
+}
