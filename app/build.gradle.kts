@@ -79,8 +79,8 @@ dependencies {
 
     api(libs.kotlinx.coroutines.core)
     api(libs.grpc.kotlin.stub)
-    api(libs.grpc.protobuf)
-    api(libs.protobuf.kotlin)
+    api(libs.grpc.protobuf.lite)
+    api(libs.protobuf.kotlin.lite)
 
     implementation(project(":stub-protos"))
 }
