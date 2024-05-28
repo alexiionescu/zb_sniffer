@@ -34,7 +34,10 @@ import com.poltys.protos.zb_stats.*
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private val uri by lazy { Uri.parse(resources.getString(R.string.server_url)) }
+    private val uri by lazy {
+        println("Connecting to ${resources.getString(R.string.server_url)}")
+        Uri.parse(resources.getString(R.string.server_url))
+    }
     private val reporterService by lazy { StatsRCP(uri) }
 
     override fun onCreate(savedInstanceState: Bundle?) {

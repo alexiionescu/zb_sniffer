@@ -83,4 +83,5 @@ dependencies {
     api(libs.protobuf.kotlin.lite)
 
     implementation(project(":stub-protos"))
+    runtimeOnly(libs.grpc.okhttp)
 }
