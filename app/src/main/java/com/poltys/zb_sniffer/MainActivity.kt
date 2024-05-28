@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Surface
@@ -32,8 +34,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,20 +117,21 @@ fun Float.format(digits: Int) = "%.${digits}f".format(this)
 @Composable
 fun Reporter(statsRCP: StatsRCP) {
     val scope = rememberCoroutineScope()
-    var lqi_text by rememberSaveable { mutableStateOf("20") }
-    var last_minutes by rememberSaveable { mutableStateOf("10") }
+    var lqiText by rememberSaveable { mutableStateOf("20") }
+    var lastMinutes by rememberSaveable { mutableStateOf("10") }
 
     Column(
         Modifier
             .fillMaxWidth()
             .fillMaxHeight(), Arrangement.Top, Alignment.CenterHorizontally) {
-
+        val focusManager = LocalFocusManager.current
         if (statsRCP.responseState.value.isNotEmpty()) {
-            Text(stringResource(R.string.server_response), modifier = Modifier.padding(top = 10.dp))
             if (statsRCP.responseValues.value.statsCount == 0){
+                Text(stringResource(R.string.server_response), modifier = Modifier.padding(top = 20.dp))
                 Text(statsRCP.responseState.value)
             }
             val gridItems = statsRCP.responseValues.value.statsMap.toList()
+
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
 
@@ -137,6 +142,7 @@ fun Reporter(statsRCP: StatsRCP) {
                     end = 12.dp,
                     bottom = 16.dp
                 ),
+                modifier = Modifier.padding(top = 20.dp),
                 content = {
                     items(gridItems.size) { index ->
                         val key = gridItems[index].first
@@ -186,8 +192,8 @@ fun Reporter(statsRCP: StatsRCP) {
         Button(
             { scope.launch {
                 statsRCP.sendRequest(
-                    lqi_text.toFloat(),
-                    last_minutes.toInt())
+                    lqiText.toFloat(),
+                    lastMinutes.toInt())
                 }
             },
             Modifier.padding(10.dp)
@@ -196,20 +202,30 @@ fun Reporter(statsRCP: StatsRCP) {
         }
         Row {
             TextField(
-                value = lqi_text,
+                value = lqiText,
                 onValueChange = {
-                    lqi_text = it
+                    lqiText = it
                 },
                 label = { Text(stringResource(R.string.min_lqi)) },
-                modifier = Modifier.widthIn(min = 40.dp, max = 80.dp)
+                modifier = Modifier.widthIn(min = 40.dp, max = 80.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardActions = KeyboardActions(
+                    onDone = {focusManager.clearFocus()}
+                )
             )
             TextField(
-                value = last_minutes,
+                value = lastMinutes,
                 onValueChange = {
-                    last_minutes = it
+                    lastMinutes = it
                 },
                 label = { Text(stringResource(R.string.last_minutes)) },
-                modifier = Modifier.width(150.dp)
+                modifier = Modifier.width(150.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardActions = KeyboardActions(
+                    onDone = {focusManager.clearFocus()}
+                )
             )
         }
 
