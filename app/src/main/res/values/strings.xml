@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">zb_sniffer</string>
-    <string name="name_hint">Stats Values</string>
     <string name="send_request">Send Request</string>
     <string name="server_response">Server Response</string>
+    <string name="last_minutes">Last Seen (Min.)</string>
+    <string name="min_lqi">Min LQI</string>
 </resources>
