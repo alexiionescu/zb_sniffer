@@ -20,11 +20,11 @@ subprojects {
     // If .proto files change, run './gradlew compileProtos -PprotosEnabled=true'
     if (protosEnabled == null) {
         project.logger.lifecycle("Protos projects are disable !!!. Run manual with ./gradlew compileProtos -PprotosEnabled=true")
-        tasks.whenTaskAdded(Action<Task> {
+        tasks.whenTaskAdded {
             if (this.project.name.contains("protos")) {
                 this.enabled = false
                 // project.logger.info("Disable TASK '${this.project.name}:${this.name}'")
             }
-        })
+        }
     }
 }

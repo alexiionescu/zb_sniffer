@@ -1,6 +1,7 @@
 <resources>
-    <string name="app_name">zb_sniffer</string>
-    <string name="send_request">Send Request</string>
+    <string name="app_name">Zb Mon</string>
+    <string name="send_request">Start Monitor</string>
+    <string name="cancel_requests">Cancel Monitor</string>
     <string name="server_response">Server Response</string>
     <string name="last_minutes">Last Seen (Min.)</string>
     <string name="min_lqi">Min LQI</string>
