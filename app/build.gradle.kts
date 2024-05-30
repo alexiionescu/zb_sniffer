@@ -8,6 +8,20 @@ android {
     namespace = "com.poltys.zb_sniffer"
     compileSdk = 34
 
+    signingConfigs {
+        // vars from GRADLE_HOME_DIR (default /home/user/.gradle) gradle.properties file
+        val signingStoreFile: String? by project
+        val signingStorePassword: String? by project
+        val signingKeyAlias: String? by project
+        val signingKeyPassword: String? by project
+
+        this.create("Release") {
+            storeFile = signingStoreFile?.let { file(it) }
+            storePassword = signingStorePassword
+            keyAlias = signingKeyAlias
+            keyPassword = signingKeyPassword
+        }
+    }
     defaultConfig {
         applicationId = "com.poltys.zb_sniffer"
         minSdk = 29
@@ -30,6 +44,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("Release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
