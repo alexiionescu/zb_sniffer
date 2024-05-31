@@ -5,4 +5,5 @@
     <string name="server_response">Server Response</string>
     <string name="last_minutes">Last Seen (Min.)</string>
     <string name="min_lqi">Min LQI</string>
+    <string name="capture_channel">Channel</string>
 </resources>

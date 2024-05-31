@@ -89,6 +89,7 @@ class StatsRCP(uri: Uri) : Closeable {
     private var tickerJob: Job? = null
     var lqi: Float = 20F
     var lastMinutes: Int = 10
+    var channel802154: Int = 16
 
     private val channel = let {
         val builder = ManagedChannelBuilder.forAddress(uri.host, uri.port)
@@ -106,6 +107,7 @@ class StatsRCP(uri: Uri) : Closeable {
     private suspend fun sendRequest(lqi: Float, lastMinutes: Int) {
         try {
             val request = statsRequest {
+                this.channel = channel802154
                 this.name = "Stats from Android App"
                 this.lqi = lqi
                 this.timestamp = (Instant.now().epochSecond - lastMinutes * 60) * 1000000
@@ -162,6 +164,7 @@ fun Reporter(statsRCP: StatsRCP) {
     val scope = rememberCoroutineScope()
     var lqiText by rememberSaveable { mutableStateOf(statsRCP.lqi.format(0)) }
     var lastMinutes by rememberSaveable { mutableStateOf(statsRCP.lastMinutes.toString()) }
+    var channel802154 by rememberSaveable { mutableStateOf(statsRCP.channel802154.toString()) }
     var isSending by remember { mutableStateOf(false) }
 
     Column(
@@ -246,6 +249,30 @@ fun Reporter(statsRCP: StatsRCP) {
             else Text(stringResource(R.string.send_request).format(30))
         }
         Row {
+            TextField(
+                value = channel802154,
+                onValueChange = {
+                    channel802154 = it
+                    if (it.isNotEmpty() && it.isDigitsOnly()) {
+                        val newCh = it.toInt()
+                        if (newCh in 11..26) {
+                            statsRCP.channel802154 = channel802154.toInt()
+                        }
+                    }
+                },
+                label = { Text(stringResource(R.string.capture_channel)) },
+                modifier = Modifier.widthIn(min = 40.dp, max = 80.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardActions = KeyboardActions(onDone = {
+                    val newCh = channel802154.toInt()
+                    if (newCh in 11..26) {
+                        focusManager.clearFocus()
+                    } else {
+                        channel802154 = statsRCP.channel802154.toString()
+                    }
+                })
+            )
             TextField(
                 value = lqiText,
                 onValueChange = {

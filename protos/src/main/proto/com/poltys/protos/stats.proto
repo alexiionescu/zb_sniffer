@@ -12,10 +12,11 @@ service StatsReport {
 }
 
 message StatsRequest {
-  optional string name = 1;
-  optional int64 timestamp = 2;
-  optional float lqi = 3;
-  optional int32 seq_lost = 4;
+  uint32 channel = 1;
+  optional string name = 2;
+  optional int64 timestamp = 3;
+  optional float lqi = 4;
+  optional int32 seq_lost = 5;
 }
 
 message StatsItem {
