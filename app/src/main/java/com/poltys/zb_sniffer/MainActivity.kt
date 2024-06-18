@@ -46,6 +46,8 @@ import androidx.core.text.isDigitsOnly
 import com.poltys.protos.zb_stats.StatsReportGrpcKt
 import com.poltys.protos.zb_stats.statsReply
 import com.poltys.protos.zb_stats.statsRequest
+import com.poltys.zb_sniffer.ui.theme.TextError
+import com.poltys.zb_sniffer.ui.theme.TextWarning
 import com.poltys.zb_sniffer.ui.theme.Zb_snifferTheme
 import io.grpc.ManagedChannelBuilder
 import kotlinx.coroutines.CoroutineScope
@@ -87,7 +89,7 @@ class StatsRCP(uri: Uri) : Closeable {
     val responseValues = mutableStateOf(statsReply { })
 
     private var tickerJob: Job? = null
-    var lqi: Float = 20F
+    var lqi: Float = 10F
     var lastMinutes: Int = 10
     var channel802154: Int = 16
 
@@ -181,7 +183,7 @@ fun Reporter(statsRCP: StatsRCP) {
             } else {
                 val gridItems =
                     statsRCP.responseValues.value.statsMap.toList().sortedBy { it.first }
-                LazyVerticalGrid(columns = GridCells.Adaptive(128.dp),
+                LazyVerticalGrid(columns = GridCells.Adaptive(140.dp),
 
                     // content padding
                     contentPadding = PaddingValues(
@@ -201,18 +203,18 @@ fun Reporter(statsRCP: StatsRCP) {
                                     modifier = Modifier.padding(4.dp)
                                 )
                                 Text(
-                                    text = "LQI: ${value.lqi.format(0)}",
+                                    text = "LQI: ${value.lqi.format(0)} [${value.rssi.format(0)} dBm]",
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 16.sp,
-                                    color = if (value.lqi < 60) Color.Red else Color.Unspecified,
+                                    color = if (value.lqi < 30) TextError else Color.Unspecified,
                                     textAlign = TextAlign.Left,
                                     modifier = Modifier.padding(2.dp)
                                 )
                                 Text(
-                                    text = "LOST: $seqLostDupes / ${value.seqCnt}",
+                                    text = "LOST: $seqLostDupes / ${value.seqCnt} A:${value.zbdccLost}",
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 16.sp,
-                                    color = if (seqLostDupes > 5) Color.Red else if (seqLostDupes > 2) Color.Yellow else Color.Unspecified,
+                                    color = if (seqLostDupes > 10) TextError else if (seqLostDupes > 5) TextWarning else Color.Unspecified,
                                     textAlign = TextAlign.Left,
                                     modifier = Modifier.padding(2.dp)
                                 )

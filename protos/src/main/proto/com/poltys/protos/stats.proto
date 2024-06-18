@@ -27,6 +27,7 @@ message StatsItem {
     int32 seq_lost = 5;
     int32 seq_cnt = 6;
     int32 seq_duplicates = 7;
+    int32 zbdcc_lost = 8;
 }
 message StatsReply {
     map<string, StatsItem> stats = 1;
