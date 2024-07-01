@@ -2,6 +2,7 @@ package com.poltys.zb_sniffer
 
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,10 +61,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import java.io.Closeable
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -89,9 +91,9 @@ class StatsRCP(uri: Uri) : Closeable {
     val responseValues = mutableStateOf(statsReply { })
 
     private var tickerJob: Job? = null
-    var lqi: Float = 10F
-    var lastMinutes: Int = 10
-    var channel802154: Int = 16
+    var lqi: Float = UserStore.DEFAULT_LQI
+    var lastMinutes: Int = UserStore.DEFAULT_MIN
+    var channel802154: Int = UserStore.DEFAULT_CHANNEL
 
     private val channel = let {
         val builder = ManagedChannelBuilder.forAddress(uri.host, uri.port)
@@ -121,7 +123,7 @@ class StatsRCP(uri: Uri) : Closeable {
         } catch (e: Exception) {
             responseState.value = e.message ?: "Unknown Error"
             responseError.value = true
-            e.printStackTrace()
+            Log.e(TAG, "Error Request", e)
         }
     }
 
@@ -153,20 +155,36 @@ class StatsRCP(uri: Uri) : Closeable {
     override fun close() {
         channel.shutdownNow()
     }
+
+    companion object {
+        const val TAG = "ZB_SNIFFER"
+    }
 }
-
-var timeFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
-
-fun Float.format(digits: Int) = "%.${digits}f".format(this)
 
 
 @Composable
 fun Reporter(statsRCP: StatsRCP) {
     val scope = rememberCoroutineScope()
-    var lqiText by rememberSaveable { mutableStateOf(statsRCP.lqi.format(0)) }
-    var lastMinutes by rememberSaveable { mutableStateOf(statsRCP.lastMinutes.toString()) }
-    var channel802154 by rememberSaveable { mutableStateOf(statsRCP.channel802154.toString()) }
+    val context = LocalContext.current
+    val store = UserStore(context)
+    val channelStore by store.getChannel.collectAsState(initial = UserStore.DEFAULT_CHANNEL)
+    val lqiStore by store.getMinLQI.collectAsState(initial = UserStore.DEFAULT_LQI)
+    val minutesStore by store.getMinutes.collectAsState(initial = UserStore.DEFAULT_MIN)
+    var lqiText by rememberSaveable { mutableStateOf(UserStore.DEFAULT_LQI.format(0)) }
+    var lastMinutes by rememberSaveable { mutableStateOf(UserStore.DEFAULT_MIN.toString()) }
+    var channel802154 by rememberSaveable { mutableStateOf(UserStore.DEFAULT_CHANNEL.toString()) }
+    if (statsRCP.lqi != lqiStore) {
+        statsRCP.lqi = lqiStore
+        lqiText = lqiStore.format(0)
+    }
+    if (statsRCP.lastMinutes != minutesStore) {
+        statsRCP.lastMinutes = minutesStore
+        lastMinutes = minutesStore.toString()
+    }
+    if (statsRCP.channel802154 != channelStore) {
+        statsRCP.channel802154 = channelStore
+        channel802154 = channelStore.toString()
+    }
     var isSending by remember { mutableStateOf(false) }
 
     Column(
@@ -181,8 +199,9 @@ fun Reporter(statsRCP: StatsRCP) {
                 Text(stringResource(R.string.server_response))
                 Text(statsRCP.responseState.value)
             } else {
-                val gridItems =
-                    statsRCP.responseValues.value.statsMap.toList().sortedBy { it.first }
+                val gridItems = statsRCP.responseValues.value.statsMap.toList()
+                    .filter { (it.second.seqCnt > 1 || it.second.zbdccTotal > 0) && it.second.lqi != 255F }
+                    .sortedBy { it.first }
                 LazyVerticalGrid(columns = GridCells.Adaptive(140.dp),
 
                     // content padding
@@ -193,6 +212,23 @@ fun Reporter(statsRCP: StatsRCP) {
                             val key = gridItems[index].first
                             val value = gridItems[index].second
                             val seqLostDupes = value.seqLost + value.seqDuplicates
+                            var lostTextColor = Color.Unspecified
+                            var lostText = if (value.zbdccTotal > 0) {
+                                when (value.zbdccLost.toFloat() / value.zbdccTotal.toFloat()) {
+                                    in 0.01..<0.2 -> lostTextColor = TextWarning
+                                    in 0.2..1.0 -> lostTextColor = TextError
+                                }
+                                "A: ${value.zbdccLost} / ${value.zbdccTotal}   "
+                            } else {
+                                ""
+                            }
+                            if (value.seqCnt > 1) {
+                                lostText += "PKT: $seqLostDupes / ${value.seqCnt}"
+                                when (seqLostDupes.toFloat() / value.seqCnt.toFloat()) {
+                                    in 0.3..<0.5 -> lostTextColor = TextWarning
+                                    in 0.5..1.0 -> lostTextColor = TextError
+                                }
+                            }
                             Card {
                                 Text(
                                     text = key,
@@ -203,23 +239,29 @@ fun Reporter(statsRCP: StatsRCP) {
                                     modifier = Modifier.padding(4.dp)
                                 )
                                 Text(
-                                    text = "LQI: ${value.lqi.format(0)} [${value.rssi.format(0)} dBm]",
+                                    text = lostText,
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 16.sp,
-                                    color = if (value.lqi < 30) TextError else Color.Unspecified,
+                                    color = lostTextColor,
                                     textAlign = TextAlign.Left,
                                     modifier = Modifier.padding(2.dp)
                                 )
+                                if (value.rssi != 0F && value.lqi != 0F) {
+                                    Text(
+                                        text = "LQI: ${value.lqi.format(0)} [${value.rssi.format(0)} dBm]",
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 16.sp,
+                                        color = if (value.lqi > 0F && value.lqi < 20) TextWarning else Color.Unspecified,
+                                        textAlign = TextAlign.Left,
+                                        modifier = Modifier.padding(2.dp)
+                                    )
+                                }
                                 Text(
-                                    text = "LOST: $seqLostDupes / ${value.seqCnt} A:${value.zbdccLost}",
-                                    fontWeight = FontWeight.Normal,
-                                    fontSize = 16.sp,
-                                    color = if (seqLostDupes > 10) TextError else if (seqLostDupes > 5) TextWarning else Color.Unspecified,
-                                    textAlign = TextAlign.Left,
-                                    modifier = Modifier.padding(2.dp)
-                                )
-                                Text(
-                                    text = timeFormatter.format(Instant.ofEpochSecond(value.timestamp / 1000000)),
+                                    text = timeHourMinutesFormatter.format(
+                                        Instant.ofEpochSecond(
+                                            value.timestamp / 1000000
+                                        )
+                                    ),
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 16.sp,
                                     color = Color.Unspecified,
@@ -244,8 +286,7 @@ fun Reporter(statsRCP: StatsRCP) {
                     isSending = true
                 }
 
-            },
-            Modifier.padding(10.dp)
+            }, Modifier.padding(10.dp)
         ) {
             if (isSending) Text(stringResource(R.string.cancel_requests))
             else Text(stringResource(R.string.send_request).format(30))
@@ -258,7 +299,9 @@ fun Reporter(statsRCP: StatsRCP) {
                     if (it.isNotEmpty() && it.isDigitsOnly()) {
                         val newCh = it.toInt()
                         if (newCh in 11..26) {
-                            statsRCP.channel802154 = channel802154.toInt()
+                            CoroutineScope(Dispatchers.IO).launch {
+                                store.saveChannel(newCh)
+                            }
                         }
                     }
                 },
@@ -280,7 +323,9 @@ fun Reporter(statsRCP: StatsRCP) {
                 onValueChange = {
                     lqiText = it
                     if (it.isNotEmpty() && it.isDigitsOnly()) {
-                        statsRCP.lqi = it.toFloat()
+                        CoroutineScope(Dispatchers.IO).launch {
+                            store.saveMinLQI(it.toFloat())
+                        }
                     }
                 },
                 label = { Text(stringResource(R.string.min_lqi)) },
@@ -294,7 +339,9 @@ fun Reporter(statsRCP: StatsRCP) {
                 onValueChange = {
                     lastMinutes = it
                     if (it.isNotEmpty() && it.isDigitsOnly()) {
-                        statsRCP.lastMinutes = it.toInt()
+                        CoroutineScope(Dispatchers.IO).launch {
+                            store.saveMinutes(it.toInt())
+                        }
                     }
                 },
                 label = { Text(stringResource(R.string.last_minutes)) },
